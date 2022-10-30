@@ -97,23 +97,25 @@ Process {
             # Gets all the Decimals where the current workload is flagged
             $WorkloadNumbers = (1..255).where({ (($_ -band [CoManagementFlag]::$Workload) -eq [CoManagementFlag]::$Workload) })
             
+            $WQLQuery = "Select ComgmtWorkloads from CCM_System Where `n (ComgmtWorkloads "
             if ($WorkloadConfig -eq "ConfigMgr") {
                 # Builds the wql where part, (NOT IN), Filter would match if workload is set to ConfigMgr
-                $WQLQuery = "Select ComgmtWorkloads from CCM_System Where `n (ComgmtWorkloads != " `
-                    + ($WorkloadNumbers -Join (") and `n (ComgmtWorkloads != "))  `
-                    + ")"
+                # (ComgmtWorkloads != 65) and (ComgmtWorkloads != 67) ...
+                $WQLQuery += "!= " + ($WorkloadNumbers -Join (") and `n (ComgmtWorkloads != ")) + ")"
             }
             if ($WorkloadConfig -eq "Intune") {
                 # Builds the wql where part, (IN), Filter would match if workload is set to Intune
-                $WQLQuery = "Select ComgmtWorkloads from CCM_System Where `n (ComgmtWorkloads = " `
-                    + ($WorkloadNumbers -Join (") or `n (ComgmtWorkloads = "))  `
-                    + ")"
+                # (ComgmtWorkloads = 65) or (ComgmtWorkloads = 67) ...
+                $WQLQuery += "= " + ($WorkloadNumbers -Join (") or `n (ComgmtWorkloads = ")) + ")"
             }
+
+            Write-Verbose "$WorkloadConfig Query: `n $WQLQuery"
             
             # Generates the WMI Filer MOF Files
             $filename = "{0}\Co-Mgmt_{1}_{2}.mof" -f $OutDir, $Workload, $WorkloadConfig
             $mof = New-WMIFilterMOF -WQLQuery $WQLQuery -Name "Co-Mgmt $Workload $WorkloadConfig"
-            $mof | out-file -FilePath $filename -Encoding Unicode
+            $mof | out-file -FilePath $filename -Encoding Unicode    
+
             Write-Host "  Created $filename" -ForegroundColor DarkGreen
         }   
     }
