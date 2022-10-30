@@ -2,7 +2,7 @@
   .SYNOPSIS
   Creates WMI Filter MOF Files for specific Co-Management workloads and to what they are set.
   .DESCRIPTION
-  Creates two WMI Filter MOF files per workload in the current directory subfolder out
+  Creates two WMI Filter MOF files per workload in a out folder of the current directory
   or in the directory specified with the -OutDir Param.
   One WMI Filter for when the workload is on Intune and one if it's on ConfigMgr.
 #>
@@ -10,7 +10,8 @@
 [CmdletBinding()]
 Param (
     # Output Directory of the MOF Files, excluding trailing "\""
-    [Parameter()]
+    [Parameter(Mandatory = $false)]
+    #[ValidateScript({if(Test-Path $_ -PathType Container) {$true} else {throw "Path $_ is not valid"}})]
     [string]
     $OutDir = ".\out",
     # For which workload config the MOF files should be created Intune or ConfigMgr, if not specified both
@@ -78,21 +79,23 @@ instance of MSFT_Rule
         OfficeClickToRunApps = 129
     }
     #endregion
-    write-host "Configured Workload Configs $($WorkloadConfigs -Join " and ")"
-
+    
     if (-not (Test-Path $OutDir)) {
-        Write-Warning "cannot find OutDir $OutDir"
+        Write-Warning "Cannot find OutDir: $OutDir"
         exit (3)
     }
+    
+    Write-Host "Configured Workload Configs $($WorkloadConfigs -Join " and ")"
 }
 
 Process {
     Write-Host "Generating MOF Files" -ForegroundColor Green
-    # Loop all Workloads except CoManagementConfigured
-    foreach ( $Workload in [CoManagementFlag].GetEnumNames() | Where-Object{$_ -ne [CoManagementFlag]::CoManagementConfigured} ) {
-
+    foreach ( $Workload in [CoManagementFlag].GetEnumNames() | Where-Object { $_ -ne [CoManagementFlag]::CoManagementConfigured } ) {
+        # Loop all Workloads except CoManagementConfigured
+        
         Write-Host "Workload $Workload" -ForegroundColor Magenta
         foreach ($WorkloadConfig in $WorkloadConfigs) {
+            #Loop all Workload Config (Intune and ConfigMgr or Both)
 
             # Gets all the Decimals where the current workload is flagged
             $WorkloadNumbers = (1..255).where({ (($_ -band [CoManagementFlag]::$Workload) -eq [CoManagementFlag]::$Workload) })
@@ -113,12 +116,12 @@ Process {
             # Generates the WMI Filer MOF Files
             $filename = "{0}\Co-Mgmt_{1}_{2}.mof" -f $OutDir, $Workload, $WorkloadConfig
             $mof = New-WMIFilterMOF -WQLQuery $WQLQuery -Name "Co-Mgmt $Workload $WorkloadConfig"
-            $mof | out-file -FilePath $filename -Encoding Unicode
+            $mof | Out-File -FilePath $filename -Encoding Unicode
             Write-Host "  Created $filename" -ForegroundColor DarkGreen
         }   
     }
 }
 
 End {
-    Write-Host "All Done!!!" -ForegroundColor Green
+    Write-Host "All done!!!" -ForegroundColor Green
 }
